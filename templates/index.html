@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Nearby Recommender</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<div id="sidebar" class="sidebar">
+    <h3>📍 Nearby Recommender</h3>
+
+    <button class="mood-btn" onclick="selectMoodBtn(this); loadPlaces('work')">💻 Work</button>
+    <button class="mood-btn" onclick="selectMoodBtn(this); loadPlaces('date')">❤️ Date</button>
+    <button class="mood-btn" onclick="selectMoodBtn(this); loadPlaces('quick')">🍔 Quick Bite</button>
+    <button class="mood-btn" onclick="selectMoodBtn(this); loadPlaces('budget')">💸 Budget</button>
+
+    <button onclick="showFavorites()">⭐ Favorites</button>
+</div>
+
+<div class="sidebar-overlay" onclick="toggleSidebar()"></div>
+
+<div class="container">
+
+    <!-- TOP BAR -->
+    <div class="top-bar">
+        <button onclick="toggleSidebar()">☰</button>
+
+        <div class="title-box">
+            <h2 class="app-title">📍 Nearby Recommender</h2>
+            <p class="subtitle">Smart place recommendations based on your mood & location</p>
+        </div>
+
+        <div>
+            <span>👋 {{ user }}</span>
+            <button onclick="toggleDark()">🌙</button>
+            <a href="/logout" class="logout-btn">Logout</a>
+        </div>
+    </div>
+
+    <!-- SEARCH -->
+    <input id="searchInput" class="search" placeholder="Search places...">
+
+    <!-- CONTROLS -->
+    <div class="controls">
+        <select id="sortSelect">
+            <option value="distance">Sort by Distance</option>
+            <option value="rating">Sort by Rating</option>
+        </select>
+
+        <div class="slider-box">
+            Radius: <span id="radiusValue">8</span> km
+            <input type="range" min="2" max="15" value="8" id="radiusSlider">
+        </div>
+    </div>
+
+    <!-- MOOD BUTTONS -->
+    <div class="buttons">
+        <button class="mood-btn" onclick="selectMoodBtn(this); loadPlaces('work')">💻 Work</button>
+        <button class="mood-btn" onclick="selectMoodBtn(this); loadPlaces('date')">❤️ Date</button>
+        <button class="mood-btn" onclick="selectMoodBtn(this); loadPlaces('quick')">🍔 Quick Bite</button>
+        <button class="mood-btn" onclick="selectMoodBtn(this); loadPlaces('budget')">💸 Budget</button>
+        <button onclick="showFavorites()">⭐ Favorites</button>
+    </div>
+
+    <!-- MAP -->
+    <div id="map"></div>
+
+    <!-- CARDS -->
+    <div id="places" class="grid"></div>
+
+</div>
+
+<!-- Toast -->
+<div id="toast" class="toast"></div>
+
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+<script>
+let userLat, userLng;
+let allPlaces = [];
+let map, markers = [];
+let selectedMood = null;
+let radius = 8;
+let dbFavorites = [];
+
+/* GEOLOCATION */
+navigator.geolocation.getCurrentPosition(pos => {
+    userLat = pos.coords.latitude;
+    userLng = pos.coords.longitude;
+
+    map = L.map('map').setView([userLat, userLng], 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+    L.marker([userLat, userLng]).addTo(map).bindPopup("You are here");
+});
+
+/* LOAD PLACES */
+function loadPlaces(mood) {
+    selectedMood = mood;
+    showSkeletons();
+
+    fetch(`/get_places?lat=${userLat}&lng=${userLng}&mood=${mood}&radius=${radius}`)
+        .then(r => r.json())
+        .then(data => {
+            allPlaces = data;
+            applySort();
+            loadFavoritesFromDB();
+            displayPlaces(allPlaces);
+            showOnMap(allPlaces);
+        });
+}
+
+function showSkeletons() {
+    const div = document.getElementById("places");
+    div.innerHTML = "";
+    for (let i = 0; i < 6; i++) {
+        div.innerHTML += `<div class="skeleton-card"></div>`;
+    }
+}
+
+/* DISPLAY */
+function displayPlaces(places) {
+    const div = document.getElementById("places");
+    div.innerHTML = "";
+
+    if (!places.length) {
+        div.innerHTML = "<div class='no-results'>No places found nearby.</div>";
+        return;
+    }
+
+    places.forEach(p => {
+        const fav = isFavorite(p.id) ? "❤️" : "🤍";
+
+        div.innerHTML += `
+        <div class="card" data-id="${p.id}">
+            <h3>${p.name}</h3>
+            <p class="type">${p.type}</p>
+            <p>⭐ ${p.rating} | 📍 ${p.distance} km</p>
+            <button class="fav-btn" data-fav="${p.id}">${fav}</button>
+        </div>`;
+    });
+}
+
+document.getElementById("places").addEventListener("click", function(e){
+    if (e.target.classList.contains("fav-btn")) {
+        toggleFavorite(e.target.dataset.fav);
+        e.stopPropagation();
+        return;
+    }
+
+    const card = e.target.closest(".card");
+    if (!card) return;
+
+    document.querySelectorAll(".card").forEach(c => c.classList.remove("selected"));
+    card.classList.add("selected");
+});
+
+function showOnMap(places) {
+    if (!map) return;
+    markers.forEach(m => map.removeLayer(m));
+    markers = [];
+
+    places.forEach(p => {
+        const m = L.marker([p.lat, p.lon]).addTo(map)
+            .bindPopup(`${p.name}<br>${p.rating}⭐`);
+        markers.push(m);
+    });
+}
+
+searchInput.addEventListener("input", e => {
+    const q = e.target.value.toLowerCase();
+    displayPlaces(allPlaces.filter(p =>
+        p.name.toLowerCase().includes(q) ||
+        p.type.toLowerCase().includes(q)
+    ));
+});
+
+sortSelect.addEventListener("change", applySort);
+
+function applySort() {
+    if (sortSelect.value === "rating")
+        allPlaces.sort((a,b) => b.rating - a.rating);
+    else
+        allPlaces.sort((a,b) => a.distance - b.distance);
+}
+
+radiusSlider.addEventListener("input", e => {
+    radius = e.target.value;
+    radiusValue.innerText = radius;
+    if (selectedMood) loadPlaces(selectedMood);
+});
+
+function loadFavoritesFromDB() {
+    fetch("/favorites")
+        .then(r=>r.json())
+        .then(data=>{
+            dbFavorites = data;
+            displayPlaces(allPlaces);
+        });
+}
+
+function toggleFavorite(id) {
+    fetch("/favorite", {
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({place_id:id})
+    })
+    .then(r=>r.json())
+    .then(data=>{
+        loadFavoritesFromDB();
+        showToast(data.status === "added" ? "❤️ Added to favorites" : "💔 Removed from favorites");
+    });
+}
+
+function isFavorite(id) {
+    return dbFavorites.includes(id);
+}
+
+function showFavorites() {
+    displayPlaces(allPlaces.filter(p => dbFavorites.includes(p.id)));
+}
+
+function selectMoodBtn(btn) {
+    document.querySelectorAll(".mood-btn").forEach(b=>b.classList.remove("active-mood"));
+    btn.classList.add("active-mood");
+}
+
+function toggleDark() {
+    document.body.classList.toggle("dark");
+    localStorage.setItem("darkMode", document.body.classList.contains("dark"));
+}
+if(localStorage.getItem("darkMode")==="true") document.body.classList.add("dark");
+
+function toggleSidebar() {
+    sidebar.classList.toggle("open");
+    document.querySelector(".sidebar-overlay").classList.toggle("show");
+}
+
+function showToast(msg) {
+    const t = document.getElementById("toast");
+    t.innerText = msg;
+    t.classList.add("show");
+    setTimeout(()=>t.classList.remove("show"),2500);
+}
+</script>
+
+</body>
+</html>

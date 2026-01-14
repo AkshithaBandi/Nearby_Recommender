@@ -1,0 +1,608 @@
+body {
+    margin: 0;
+    font-family: "Segoe UI", sans-serif;
+    background: #f3f6fb;
+}
+
+.container {
+    max-width: 1200px;
+    margin: auto;
+    padding: 20px;
+}
+
+.top-bar {
+    display: flex;
+    justify-content: space-between;
+}
+
+.logout-btn {
+    background: #ef4444;
+    color: white;
+    padding: 6px 12px;
+    border-radius: 8px;
+    text-decoration: none;
+}
+
+h1 { text-align: center; }
+.subtitle { text-align: center; color: #555; }
+
+.search {
+    width: 100%;
+    padding: 12px;
+    border-radius: 10px;
+    border: 1px solid #ccc;
+    margin: 12px 0;
+}
+
+.controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: space-between;
+}
+
+select, input[type=range] {
+    padding: 8px;
+}
+
+.slider-box {
+    font-size: 14px;
+}
+
+.buttons {
+    text-align: center;
+    margin: 10px 0;
+}
+
+button {
+    padding: 10px 18px;
+    margin: 5px;
+    border: none;
+    border-radius: 20px;
+    background: white;
+    cursor: pointer;
+    box-shadow: 0 3px 8px rgba(0,0,0,.1);
+    transition: 0.25s;
+    position: relative;
+    overflow: hidden;
+}
+
+.mood-btn.active-mood {
+    background: linear-gradient(135deg,#2563eb,#4f46e5);
+    color: white;
+}
+
+#map {
+    height: 260px;
+    border-radius: 12px;
+    margin-bottom: 15px;
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill,minmax(220px,1fr));
+    gap: 12px;
+}
+
+.card {
+    background: white;
+    padding: 14px;
+    border-radius: 12px;
+    box-shadow: 0 6px 18px rgba(0,0,0,.1);
+    transition: 0.25s;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+}
+
+.card:hover {
+    transform: translateY(-4px);
+}
+
+.card.selected {
+    border-left: 5px solid #2563eb;
+    background: linear-gradient(135deg,#ffffff,#e6efff);
+    transform: scale(1.03);
+}
+
+.type { color: #2563eb; font-weight: bold; }
+
+.fav-btn {
+    background: transparent;
+    font-size: 18px;
+}
+
+.loading, .no-results {
+    grid-column: 1/-1;
+    text-align: center;
+    padding: 18px;
+    background: #fff3cd;
+    border-radius: 12px;
+}
+
+/* Ripple effect */
+.ripple {
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    background: rgba(255,255,255,0.6);
+    border-radius: 50%;
+    transform: scale(0);
+    animation: ripple 0.6s linear;
+    pointer-events: none;
+}
+
+@keyframes ripple {
+    to {
+        transform: scale(15);
+        opacity: 0;
+    }
+}
+
+/* Mobile optimization */
+@media(max-width: 600px){
+    .controls {
+        flex-direction: column;
+    }
+
+    #map {
+        height: 200px;
+    }
+
+    h1 {
+        font-size: 22px;
+    }
+}
+
+/* Dark mode */
+body.dark {
+    background: #0f172a;
+    color: #e5e7eb;
+}
+
+body.dark .card,
+body.dark .container,
+body.dark button,
+body.dark input,
+body.dark select {
+    background: #1e293b;
+    color: #e5e7eb;
+}
+
+body.dark .card.selected {
+    background: linear-gradient(135deg,#1e293b,#243b55);
+    border-left: 5px solid #60a5fa;
+}
+
+body.dark #map {
+    filter: brightness(0.8);
+}
+/* =======================
+   AUTH PAGES (LOGIN/SIGNUP)
+   ======================= */
+
+.auth-page {
+    height: 100vh;
+    background: linear-gradient(135deg, #2563eb, #4f46e5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.auth-container {
+    width: 100%;
+    max-width: 380px;
+    padding: 20px;
+}
+
+.auth-card {
+    background: rgba(255,255,255,0.15);
+    backdrop-filter: blur(12px);
+    border-radius: 18px;
+    padding: 35px 30px;
+    color: white;
+    box-shadow: 0 25px 60px rgba(0,0,0,0.25);
+    text-align: center;
+    animation: fadeUp 0.6s ease;
+}
+
+.auth-card h2 {
+    margin-bottom: 6px;
+}
+
+.auth-subtitle {
+    font-size: 14px;
+    opacity: 0.85;
+    margin-bottom: 25px;
+}
+
+.input-group {
+    display: flex;
+    align-items: center;
+    background: rgba(255,255,255,0.18);
+    border-radius: 12px;
+    padding: 10px 12px;
+    margin-bottom: 15px;
+}
+
+.input-group span {
+    margin-right: 8px;
+    font-size: 16px;
+}
+
+.input-group input {
+    border: none;
+    outline: none;
+    background: transparent;
+    color: white;
+    width: 100%;
+    font-size: 14px;
+}
+
+.input-group input::placeholder {
+    color: rgba(255,255,255,0.7);
+}
+
+.auth-btn {
+    width: 100%;
+    padding: 12px;
+    border: none;
+    border-radius: 12px;
+    background: white;
+    color: #2563eb;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 10px;
+    transition: 0.25s;
+}
+
+.auth-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+}
+
+.switch {
+    margin-top: 18px;
+    font-size: 13px;
+}
+
+.switch a {
+    color: #fff;
+    font-weight: bold;
+    text-decoration: underline;
+}
+
+.auth-error {
+    background: rgba(255,0,0,0.2);
+    padding: 8px;
+    border-radius: 8px;
+    font-size: 13px;
+    margin-bottom: 12px;
+}
+
+/* small animation */
+@keyframes fadeUp {
+    from {
+        opacity: 0;
+        transform: translateY(15px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Button press animation */
+.mood-btn {
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.mood-btn:active {
+    transform: scale(0.92);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+/* Smooth highlight animation */
+.mood-btn.active-mood {
+    animation: popSelect 0.25s ease;
+}
+
+@keyframes popSelect {
+    0% { transform: scale(0.9); }
+    70% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+}
+/* Sidebar sliding panel */
+
+.sidebar {
+    position: fixed;
+    top: 0;
+    left: -260px;
+    width: 250px;
+    height: 100%;
+    background: #2563eb;
+    color: white;
+    padding: 20px;
+    transition: left 0.3s ease;
+    z-index: 1000;
+    box-shadow: 4px 0 15px rgba(0,0,0,0.2);
+}
+
+.sidebar h3 {
+    margin-top: 0;
+}
+
+.sidebar button {
+    width: 100%;
+    margin: 8px 0;
+    background: rgba(255,255,255,0.15);
+    color: white;
+}
+
+.sidebar.open {
+    left: 0;
+}
+
+.sidebar-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.4);
+    display: none;
+    z-index: 999;
+}
+
+.sidebar-overlay.show {
+    display: block;
+}
+
+/* Dark mode sidebar */
+body.dark .sidebar {
+    background: #1e293b;
+}
+/* Attractive centered heading */
+
+.app-title {
+    flex: 1;
+    text-align: center;
+    font-size: 26px;
+    font-weight: 800;
+    letter-spacing: 1px;
+    margin: 0;
+
+    background: linear-gradient(90deg, #2563eb, #4f46e5, #22c55e);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+
+    animation: glowTitle 3s ease-in-out infinite;
+}
+
+@keyframes glowTitle {
+    0%   { filter: drop-shadow(0 0 2px rgba(37,99,235,0.4)); }
+    50%  { filter: drop-shadow(0 0 8px rgba(79,70,229,0.7)); }
+    100% { filter: drop-shadow(0 0 2px rgba(37,99,235,0.4)); }
+}
+
+/* Ensure top-bar items align nicely */
+.top-bar {
+    align-items: center;
+    gap: 10px;
+}
+/* Subtitle aligned with app title */
+
+.subtitle {
+    text-align: center;
+    margin-top: 4px;
+    margin-bottom: 18px;
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: 0.3px;
+    color: #64748b;
+}
+
+/* Dark mode subtitle */
+body.dark .subtitle {
+    color: #cbd5f5;
+}
+/* ===== PORTAL LOGIN STYLE ===== */
+
+.portal-container {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.portal-logo {
+    font-size: 26px;
+    font-weight: 800;
+    margin-bottom: 20px;
+    background: linear-gradient(90deg,#2563eb,#4f46e5);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.portal-card {
+    width: 360px;
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0 12px 30px rgba(0,0,0,0.15);
+    overflow: hidden;
+}
+
+.portal-header {
+    background: #b03030;
+    color: white;
+    padding: 12px;
+    font-weight: bold;
+    text-align: center;
+}
+
+.portal-card form {
+    padding: 20px;
+}
+
+.portal-card input {
+    width: 100%;
+    padding: 10px;
+    margin-bottom: 12px;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+}
+
+.primary-btn {
+    width: 100%;
+    padding: 10px;
+    background: #357abd;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.secondary-btn {
+    display: block;
+    margin: 15px;
+    text-align: center;
+    padding: 10px;
+    background: #357abd;
+    color: white;
+    border-radius: 6px;
+    text-decoration: none;
+}
+
+.divider {
+    text-align: center;
+    color: #888;
+    margin-top: 10px;
+}
+
+/* Dark mode support */
+body.dark .portal-card {
+    background: #1e293b;
+    color: white;
+}
+
+body.dark .portal-card input {
+    background: #0f172a;
+    color: white;
+    border: 1px solid #444;
+}
+/* ================================
+   PERFECT TITLE + SUBTITLE CENTERING
+   ================================ */
+
+.top-bar {
+    position: relative; /* required for absolute centering */
+}
+
+.title-box {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    text-align: center;
+    pointer-events: none; /* keeps buttons clickable */
+}
+
+.app-title {
+    margin: 0;
+    font-size: 26px;
+    font-weight: 800;
+    letter-spacing: 1px;
+}
+
+.subtitle {
+    margin-top: 4px;
+    font-size: 14px;
+    font-weight: 500;
+    color: #64748b;
+}
+
+/* Dark mode support */
+body.dark .subtitle {
+    color: #cbd5f5;
+}
+/* Smooth sidebar animation upgrade */
+
+.sidebar {
+    transition: transform 0.35s cubic-bezier(0.25, 0.8, 0.25, 1);
+    transform: translateX(-100%);
+}
+
+.sidebar.open {
+    transform: translateX(0);
+}
+
+.sidebar-overlay {
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.sidebar-overlay.show {
+    display: block;
+    opacity: 1;
+}
+/* Skeleton loading cards */
+
+.skeleton-card {
+    height: 110px;
+    border-radius: 12px;
+    background: linear-gradient(
+        90deg,
+        #e5e7eb 25%,
+        #f3f4f6 37%,
+        #e5e7eb 63%
+    );
+    background-size: 400% 100%;
+    animation: shimmer 1.4s ease infinite;
+}
+
+@keyframes shimmer {
+    0% { background-position: 100% 0; }
+    100% { background-position: -100% 0; }
+}
+
+body.dark .skeleton-card {
+    background: linear-gradient(
+        90deg,
+        #1e293b 25%,
+        #334155 37%,
+        #1e293b 63%
+    );
+}
+/* Force portal logo visibility */
+
+.portal-logo {
+    font-size: 28px;
+    font-weight: 900;
+    margin-bottom: 25px;
+    text-align: center;
+
+    background: linear-gradient(90deg, #2563eb, #4f46e5, #22c55e);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+
+    display: block;
+    z-index: 10;
+}
+
+/* Fallback if gradient fails */
+.portal-logo::after {
+    content: "";
+    display: block;
+}
+/* ===== Fix login page title visibility ===== */
+
+.auth-page .portal-logo {
+    color: white !important;
+    background: none !important;
+    -webkit-text-fill-color: white !important;
+    font-size: 30px;
+    font-weight: 900;
+    letter-spacing: 1px;
+    margin-bottom: 30px;
+    text-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
