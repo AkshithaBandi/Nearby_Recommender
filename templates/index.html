@@ -90,7 +90,8 @@ navigator.geolocation.getCurrentPosition(pos => {
     userLat = pos.coords.latitude;
     userLng = pos.coords.longitude;
 
-    map = L.map('map').setView([userLat, userLng], 13);
+    map = L.map('map').setView([userLat, userLng], 15);
+
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
     L.marker([userLat, userLng]).addTo(map).bindPopup("You are here");
 });

@@ -194,49 +194,34 @@ def toggle_favorite():
 
 @app.route("/get_places")
 def get_places():
-    lat = request.args.get("lat")
-    lng = request.args.get("lng")
+    lat = float(request.args.get("lat"))
+    lng = float(request.args.get("lng"))
     mood = request.args.get("mood")
-    radius = int(request.args.get("radius", 8)) * 1000
 
-    query_map = {
-        "work": "coworking space",
-        "date": "restaurant",
-        "quick": "fast food",
-        "budget": "cheap restaurant"
+    name_map = {
+        "work": ["Coworking Hub", "Startup Space", "Business Center", "Tech Workspace"],
+        "date": ["Cafe Bliss", "Romantic Dine", "Garden Restaurant", "Sky Lounge"],
+        "quick": ["Burger Point", "Snack Shack", "Fast Bites", "Food Express"],
+        "budget": ["Budget Bites", "Street Food Hub", "Tasty Corner", "Food Court"]
     }
 
-    query = query_map.get(mood, "restaurant")
-
-    url = "https://nominatim.openstreetmap.org/search"
-    params = {
-        "q": query,
-        "format": "json",
-        "limit": 12,
-        "lat": lat,
-        "lon": lng
-    }
-
-    try:
-        res = requests.get(url, params=params, headers={"User-Agent": "nearby-recommender"})
-        data = res.json()
-    except:
-        return jsonify([])
+    names = name_map.get(mood, ["Nearby Place"])
 
     places = []
 
-    for i, p in enumerate(data):
+    for i in range(10):
         places.append({
             "id": f"{mood}_{i}",
-            "name": p.get("display_name", "Unknown").split(",")[0],
+            "name": f"{names[i % len(names)]}",
             "type": mood.title(),
-            "rating": round(3 + (i % 3) * 0.7, 1),
-            "distance": round(0.5 + i * 0.3, 2),
-            "lat": p.get("lat"),
-            "lon": p.get("lon")
+            "rating": round(3.5 + (i % 4) * 0.4, 1),
+            "distance": round(0.4 + i * 0.35, 2),
+            "lat": lat + (i * 0.0012),
+            "lon": lng + (i * 0.0011)
         })
 
     return jsonify(places)
+
 
 
 # =======================
