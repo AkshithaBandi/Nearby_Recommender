@@ -1,238 +1,244 @@
-from flask import Flask, render_template, request, jsonify, redirect, url_for, session
+from flask import Flask, render_template, request, redirect, session, jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
-import sqlite3
-import requests
-import math
-import random
+import psycopg2
+import psycopg2.extras
 import os
+import requests
 
 app = Flask(__name__)
-app.secret_key = "change_this_secret_key"
+app.secret_key = "super-secret-key"  # change in production
 
-DB_NAME = "app.db"
-
-# ---------------- DATABASE ----------------
+# =======================
+# DATABASE
+# =======================
 
 def get_db():
-    conn = sqlite3.connect(DB_NAME)
-    conn.row_factory = sqlite3.Row
+    DATABASE_URL = os.environ.get("DATABASE_URL")
+
+    conn = psycopg2.connect(
+        DATABASE_URL,
+        cursor_factory=psycopg2.extras.RealDictCursor,
+        sslmode="require"
+    )
     return conn
+
 
 def init_db():
     conn = get_db()
-    c = conn.cursor()
+    cur = conn.cursor()
 
-    c.execute("""
-        CREATE TABLE IF NOT EXISTS users(
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            username TEXT UNIQUE,
-            password_hash TEXT
-        )
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            id SERIAL PRIMARY KEY,
+            username TEXT UNIQUE NOT NULL,
+            password TEXT NOT NULL
+        );
     """)
 
-    c.execute("""
-        CREATE TABLE IF NOT EXISTS favorites(
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER,
-            place_id TEXT
-        )
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS favorites (
+            id SERIAL PRIMARY KEY,
+            username TEXT NOT NULL,
+            place_id TEXT NOT NULL
+        );
     """)
 
     conn.commit()
+    cur.close()
     conn.close()
+
 
 init_db()
 
-# ---------------- UTILS ----------------
+# =======================
+# AUTH ROUTES
+# =======================
 
-def calculate_distance(lat1, lon1, lat2, lon2):
-    R = 6371
-    dlat = math.radians(lat2 - lat1)
-    dlon = math.radians(lon2 - lon1)
-    a = math.sin(dlat/2)**2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon/2)**2
-    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
-    return round(R * c, 2)
-
-def estimate_rating(place_type):
-    base = {"cafe":4.2,"restaurant":4.3,"fast_food":3.9,"food_court":4.0}
-    return round(base.get(place_type,4.0) + random.uniform(-0.3,0.3), 1)
-
-# ---------------- AUTH ----------------
-
-@app.route("/", methods=["GET","POST"])
+@app.route("/", methods=["GET", "POST"])
 def login():
-    if "user_id" in session:
-        return redirect(url_for("home"))
-
-    error = None
-
     if request.method == "POST":
         username = request.form["username"]
         password = request.form["password"]
 
         conn = get_db()
-        user = conn.execute("SELECT * FROM users WHERE username=?", (username,)).fetchone()
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM users WHERE username=%s", (username,))
+        user = cur.fetchone()
+        cur.close()
         conn.close()
 
-        if user and check_password_hash(user["password_hash"], password):
-            session["user_id"] = user["id"]
-            session["username"] = user["username"]
-            return redirect(url_for("home"))
-        else:
-            error = "Invalid credentials"
+        if user and check_password_hash(user["password"], password):
+            session["user"] = username
+            return redirect("/dashboard")
 
-    return render_template("login.html", error=error)
+        return render_template("login.html", error="Invalid credentials")
 
-@app.route("/signup", methods=["GET","POST"])
+    return render_template("login.html")
+
+
+@app.route("/signup", methods=["GET", "POST"])
 def signup():
-    error = None
-
     if request.method == "POST":
         username = request.form["username"]
         password = request.form["password"]
 
         hashed = generate_password_hash(password)
 
-        try:
-            conn = get_db()
-            conn.execute("INSERT INTO users(username,password_hash) VALUES(?,?)", (username,hashed))
-            conn.commit()
-            conn.close()
-            return redirect(url_for("login"))
-        except:
-            error = "Username already exists"
+        conn = get_db()
+        cur = conn.cursor()
 
-    return render_template("signup.html", error=error)
+        try:
+            cur.execute(
+                "INSERT INTO users (username, password) VALUES (%s,%s)",
+                (username, hashed)
+            )
+            conn.commit()
+        except:
+            cur.close()
+            conn.close()
+            return render_template("signup.html", error="Username already exists")
+
+        cur.close()
+        conn.close()
+        return redirect("/")
+
+    return render_template("signup.html")
+
 
 @app.route("/logout")
 def logout():
     session.clear()
-    return redirect(url_for("login"))
+    return redirect("/")
 
-@app.route("/home")
-def home():
-    if "user_id" not in session:
-        return redirect(url_for("login"))
-    return render_template("index.html", user=session["username"])
 
-# ---------------- FAVORITES API ----------------
+# =======================
+# DASHBOARD
+# =======================
 
-@app.route("/favorite", methods=["POST"])
-def toggle_favorite():
-    if "user_id" not in session:
-        return jsonify({"status":"unauthorized"})
+@app.route("/dashboard")
+def dashboard():
+    if "user" not in session:
+        return redirect("/")
+    return render_template("index.html", user=session["user"])
 
-    data = request.json
-    place_id = data["place_id"]
-    user_id = session["user_id"]
+
+# =======================
+# FAVORITES
+# =======================
+
+@app.route("/favorites")
+def favorites():
+    if "user" not in session:
+        return jsonify([])
 
     conn = get_db()
     cur = conn.cursor()
 
-    existing = cur.execute(
-        "SELECT * FROM favorites WHERE user_id=? AND place_id=?",
-        (user_id, place_id)
-    ).fetchone()
+    cur.execute(
+        "SELECT place_id FROM favorites WHERE username=%s",
+        (session["user"],)
+    )
 
-    if existing:
-        cur.execute("DELETE FROM favorites WHERE user_id=? AND place_id=?", (user_id, place_id))
+    rows = cur.fetchall()
+    favs = [r["place_id"] for r in rows]
+
+    cur.close()
+    conn.close()
+
+    return jsonify(favs)
+
+
+@app.route("/favorite", methods=["POST"])
+def toggle_favorite():
+    if "user" not in session:
+        return jsonify({"status": "error"})
+
+    place_id = request.json["place_id"]
+    user = session["user"]
+
+    conn = get_db()
+    cur = conn.cursor()
+
+    cur.execute(
+        "SELECT * FROM favorites WHERE username=%s AND place_id=%s",
+        (user, place_id)
+    )
+    exists = cur.fetchone()
+
+    if exists:
+        cur.execute(
+            "DELETE FROM favorites WHERE username=%s AND place_id=%s",
+            (user, place_id)
+        )
         status = "removed"
     else:
-        cur.execute("INSERT INTO favorites(user_id,place_id) VALUES(?,?)", (user_id, place_id))
+        cur.execute(
+            "INSERT INTO favorites (username, place_id) VALUES (%s,%s)",
+            (user, place_id)
+        )
         status = "added"
 
     conn.commit()
+    cur.close()
     conn.close()
 
-    return jsonify({"status":status})
+    return jsonify({"status": status})
 
-@app.route("/favorites")
-def get_favorites():
-    if "user_id" not in session:
-        return jsonify([])
 
-    conn = get_db()
-    rows = conn.execute(
-        "SELECT place_id FROM favorites WHERE user_id=?",
-        (session["user_id"],)
-    ).fetchall()
-    conn.close()
-
-    return jsonify([r["place_id"] for r in rows])
-
-# ---------------- PLACES API ----------------
-
-CACHE = {}
+# =======================
+# PLACES API
+# =======================
 
 @app.route("/get_places")
 def get_places():
+    lat = request.args.get("lat")
+    lng = request.args.get("lng")
+    mood = request.args.get("mood")
+    radius = int(request.args.get("radius", 8)) * 1000
+
+    query_map = {
+        "work": "coworking space",
+        "date": "restaurant",
+        "quick": "fast food",
+        "budget": "cheap restaurant"
+    }
+
+    query = query_map.get(mood, "restaurant")
+
+    url = "https://nominatim.openstreetmap.org/search"
+    params = {
+        "q": query,
+        "format": "json",
+        "limit": 12,
+        "lat": lat,
+        "lon": lng
+    }
+
     try:
-        lat = float(request.args.get("lat"))
-        lng = float(request.args.get("lng"))
-        mood = request.args.get("mood")
-
-        cache_key = f"{lat}_{lng}_{mood}"
-        if cache_key in CACHE:
-            return jsonify(CACHE[cache_key])
-
-        tag_map = {
-            "work":"amenity=cafe",
-            "date":"amenity=restaurant",
-            "quick":"amenity=fast_food",
-            "budget":"amenity=food_court"
-        }
-
-        tag = tag_map.get(mood,"amenity=restaurant")
-
-        query = f"""
-        [out:json];
-        node[{tag}](around:8000,{lat},{lng});
-        out;
-        """
-
-        urls = [
-            "https://overpass-api.de/api/interpreter",
-            "https://overpass.kumi.systems/api/interpreter"
-        ]
-
-        response = None
-        for u in urls:
-            try:
-                response = requests.post(u,data=query,timeout=20)
-                if response.status_code==200:
-                    break
-            except:
-                pass
-
-        if not response or response.status_code!=200:
-            return jsonify([])
-
-        elements = response.json().get("elements",[])
-        results = []
-
-        for p in elements:
-            if "lat" in p and "lon" in p:
-                place_type = p.get("tags",{}).get("amenity","unknown")
-                results.append({
-                    "id": f"{p['lat']}_{p['lon']}",
-                    "name": p.get("tags",{}).get("name","Unnamed Place"),
-                    "type": place_type,
-                    "lat": p["lat"],
-                    "lon": p["lon"],
-                    "distance": calculate_distance(lat,lng,p["lat"],p["lon"]),
-                    "rating": estimate_rating(place_type)
-                })
-
-        results.sort(key=lambda x:x["distance"])
-        final = results[:25]
-        CACHE[cache_key] = final
-
-        return jsonify(final)
-
-    except Exception as e:
-        print("ERROR:",e)
+        res = requests.get(url, params=params, headers={"User-Agent": "nearby-recommender"})
+        data = res.json()
+    except:
         return jsonify([])
 
-if __name__ == "__main__":
-    app.run()
+    places = []
 
+    for i, p in enumerate(data):
+        places.append({
+            "id": f"{mood}_{i}",
+            "name": p.get("display_name", "Unknown").split(",")[0],
+            "type": mood.title(),
+            "rating": round(3 + (i % 3) * 0.7, 1),
+            "distance": round(0.5 + i * 0.3, 2),
+            "lat": p.get("lat"),
+            "lon": p.get("lon")
+        })
+
+    return jsonify(places)
+
+
+# =======================
+# MAIN
+# =======================
+
+if __name__ == "__main__":
+    app.run(debug=True)
