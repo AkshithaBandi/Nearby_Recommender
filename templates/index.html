@@ -10,12 +10,10 @@
 <!-- SIDEBAR -->
 <div id="sidebar" class="sidebar">
     <h3>📍 Nearby Recommender</h3>
-
     <button class="mood-btn" onclick="selectMoodBtn(this); loadPlaces('work')">💻 Work</button>
     <button class="mood-btn" onclick="selectMoodBtn(this); loadPlaces('date')">❤️ Date</button>
     <button class="mood-btn" onclick="selectMoodBtn(this); loadPlaces('quick')">🍔 Quick Bite</button>
     <button class="mood-btn" onclick="selectMoodBtn(this); loadPlaces('budget')">💸 Budget</button>
-
     <button onclick="showFavorites()">⭐ Favorites</button>
 </div>
 
@@ -23,7 +21,6 @@
 
 <div class="container">
 
-    <!-- TOP BAR -->
     <div class="top-bar">
         <button onclick="toggleSidebar()">☰</button>
 
@@ -39,10 +36,8 @@
         </div>
     </div>
 
-    <!-- SEARCH -->
     <input id="searchInput" class="search" placeholder="Search places...">
 
-    <!-- CONTROLS -->
     <div class="controls">
         <select id="sortSelect">
             <option value="distance">Sort by Distance</option>
@@ -55,7 +50,6 @@
         </div>
     </div>
 
-    <!-- MOOD BUTTONS -->
     <div class="buttons">
         <button class="mood-btn" onclick="selectMoodBtn(this); loadPlaces('work')">💻 Work</button>
         <button class="mood-btn" onclick="selectMoodBtn(this); loadPlaces('date')">❤️ Date</button>
@@ -64,15 +58,11 @@
         <button onclick="showFavorites()">⭐ Favorites</button>
     </div>
 
-    <!-- MAP -->
     <div id="map"></div>
-
-    <!-- CARDS -->
     <div id="places" class="grid"></div>
 
 </div>
 
-<!-- Toast -->
 <div id="toast" class="toast"></div>
 
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
@@ -84,6 +74,13 @@ let map, markers = [];
 let selectedMood = null;
 let radius = 8;
 let dbFavorites = [];
+let radiusCircle = null;
+
+const searchInput = document.getElementById("searchInput");
+const sortSelect = document.getElementById("sortSelect");
+const radiusSlider = document.getElementById("radiusSlider");
+const radiusValue = document.getElementById("radiusValue");
+const sidebar = document.getElementById("sidebar");
 
 /* GEOLOCATION */
 navigator.geolocation.getCurrentPosition(pos => {
@@ -91,9 +88,26 @@ navigator.geolocation.getCurrentPosition(pos => {
     userLng = pos.coords.longitude;
 
     map = L.map('map').setView([userLat, userLng], 15);
-
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-    L.marker([userLat, userLng]).addTo(map).bindPopup("You are here");
+
+    const userIcon = L.icon({
+        iconUrl: "https://cdn-icons-png.flaticon.com/512/64/64113.png",
+        iconSize: [32, 32],
+        iconAnchor: [16, 32]
+    });
+
+    L.marker([userLat, userLng], { icon: userIcon })
+        .addTo(map)
+        .bindPopup("📍 You are here")
+        .openPopup();
+
+    radiusCircle = L.circle([userLat, userLng], {
+        radius: radius * 1000,
+        color: "#2563eb",
+        fillColor: "#3b82f6",
+        fillOpacity: 0.15
+    }).addTo(map);
+
 });
 
 /* LOAD PLACES */
@@ -115,9 +129,7 @@ function loadPlaces(mood) {
 function showSkeletons() {
     const div = document.getElementById("places");
     div.innerHTML = "";
-    for (let i = 0; i < 6; i++) {
-        div.innerHTML += `<div class="skeleton-card"></div>`;
-    }
+    for (let i = 0; i < 6; i++) div.innerHTML += `<div class="skeleton-card"></div>`;
 }
 
 /* DISPLAY */
@@ -157,6 +169,7 @@ document.getElementById("places").addEventListener("click", function(e){
     card.classList.add("selected");
 });
 
+/* MAP MARKERS */
 function showOnMap(places) {
     if (!map) return;
     markers.forEach(m => map.removeLayer(m));
@@ -169,6 +182,7 @@ function showOnMap(places) {
     });
 }
 
+/* SEARCH */
 searchInput.addEventListener("input", e => {
     const q = e.target.value.toLowerCase();
     displayPlaces(allPlaces.filter(p =>
@@ -177,6 +191,7 @@ searchInput.addEventListener("input", e => {
     ));
 });
 
+/* SORT */
 sortSelect.addEventListener("change", applySort);
 
 function applySort() {
@@ -186,12 +201,16 @@ function applySort() {
         allPlaces.sort((a,b) => a.distance - b.distance);
 }
 
+/* RADIUS */
 radiusSlider.addEventListener("input", e => {
     radius = e.target.value;
     radiusValue.innerText = radius;
+
+    if (radiusCircle) radiusCircle.setRadius(radius * 1000);
     if (selectedMood) loadPlaces(selectedMood);
 });
 
+/* FAVORITES */
 function loadFavoritesFromDB() {
     fetch("/favorites")
         .then(r=>r.json())
@@ -222,6 +241,7 @@ function showFavorites() {
     displayPlaces(allPlaces.filter(p => dbFavorites.includes(p.id)));
 }
 
+/* UI */
 function selectMoodBtn(btn) {
     document.querySelectorAll(".mood-btn").forEach(b=>b.classList.remove("active-mood"));
     btn.classList.add("active-mood");
