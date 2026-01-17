@@ -3,6 +3,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 import psycopg2
 import psycopg2.extras
 import os
+import math
 import requests
 
 app = Flask(__name__)
@@ -192,37 +193,76 @@ def toggle_favorite():
 # PLACES API
 # =======================
 
+def haversine(lat1, lon1, lat2, lon2):
+    R = 6371
+    dlat = math.radians(lat2 - lat1)
+    dlon = math.radians(lon2 - lon1)
+    a = math.sin(dlat/2)**2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon/2)**2
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+    return round(R * c, 2)
+
+
 @app.route("/get_places")
 def get_places():
     lat = float(request.args.get("lat"))
     lng = float(request.args.get("lng"))
     mood = request.args.get("mood")
+    radius_km = int(request.args.get("radius", 8))
 
-    name_map = {
-        "work": ["Coworking Hub", "Startup Space", "Business Center", "Tech Workspace"],
-        "date": ["Cafe Bliss", "Romantic Dine", "Garden Restaurant", "Sky Lounge"],
-        "quick": ["Burger Point", "Snack Shack", "Fast Bites", "Food Express"],
-        "budget": ["Budget Bites", "Street Food Hub", "Tasty Corner", "Food Court"]
+    mood_tags = {
+        "work": ["coworking_space", "office"],
+        "date": ["restaurant", "cafe"],
+        "quick": ["fast_food"],
+        "budget": ["restaurant"]
     }
 
-    names = name_map.get(mood, ["Nearby Place"])
+    tags = mood_tags.get(mood, ["restaurant"])
+
+    tag_query = "".join([f'node["amenity"="{t}"](around:{radius_km*1000},{lat},{lng});' for t in tags])
+
+    query = f"""
+    [out:json];
+    (
+      {tag_query}
+    );
+    out center 20;
+    """
+
+    try:
+        res = requests.post("https://overpass-api.de/api/interpreter", data=query, timeout=25)
+        data = res.json()
+    except:
+        return jsonify([])
 
     places = []
+    used = set()
 
-    for i in range(10):
+    for i, el in enumerate(data.get("elements", [])):
+        name = el.get("tags", {}).get("name")
+        if not name or name in used:
+            continue
+
+        used.add(name)
+
+        plat = el["lat"]
+        plon = el["lon"]
+
+        dist = haversine(lat, lng, plat, plon)
+
         places.append({
-            "id": f"{mood}_{i}",
-            "name": f"{names[i % len(names)]}",
+            "id": f"osm_{el['id']}",
+            "name": name,
             "type": mood.title(),
-            "rating": round(3.5 + (i % 4) * 0.4, 1),
-            "distance": round(0.4 + i * 0.35, 2),
-            "lat": lat + (i * 0.0012),
-            "lon": lng + (i * 0.0011)
+            "rating": round(3.5 + (i % 5) * 0.3, 1),
+            "distance": dist,
+            "lat": plat,
+            "lon": plon
         })
 
+        if len(places) >= 12:
+            break
+
     return jsonify(places)
-
-
 
 # =======================
 # MAIN
