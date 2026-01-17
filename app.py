@@ -15,6 +15,9 @@ app.secret_key = "super-secret-key"  # change in production
 def get_db():
     DATABASE_URL = os.environ.get("DATABASE_URL")
 
+    if not DATABASE_URL:
+        raise Exception("DATABASE_URL environment variable not set")
+
     conn = psycopg2.connect(
         DATABASE_URL,
         cursor_factory=psycopg2.extras.RealDictCursor,
