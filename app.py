@@ -144,7 +144,7 @@ def favorites():
     )
 
     rows = cur.fetchall()
-    favs = [r["place_id"] for r in rows]
+    favs = [str(r["place_id"]) for r in rows]
 
     cur.close()
     conn.close()
@@ -157,7 +157,7 @@ def toggle_favorite():
     if "user" not in session:
         return jsonify({"status": "error"})
 
-    place_id = request.json["place_id"]
+    place_id = str(request.json["place_id"])
     user = session["user"]
 
     conn = get_db()
@@ -187,7 +187,6 @@ def toggle_favorite():
     conn.close()
 
     return jsonify({"status": status})
-
 
 # =======================
 # PLACES API
